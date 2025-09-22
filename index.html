@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Prompt Cinematográfico V6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: This version reverts the "Video Type" selector, returning to the unified tabbed interface for cinematic/narrative creation. The structure is a single form organized into tabs (Mundo, Personagens, Ações, Câmara), which provides a comprehensive workflow for detailing a scene. This simplified approach removes conditional logic while retaining all advanced features like custom fields, dice suggestions, and Gemini API integration. -->
+    <!-- Visualization & Content Choices: Report Info: User request to remove the video type selector. Goal: Simplify the interface back to a single, powerful workflow. Presentation Method: The UI is structured with tabs that control the visibility of different form sections (`<section>`). All fields for cinematic creation are available in this single view. Justification: Reverting to this proven structure is the most direct way to meet the user's request, offering a robust and focused tool for narrative prompt engineering. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { background-color: #FDFBF8; font-family: 'Inter', sans-serif; }
+        .tab-button.active { background-color: #D5BFA8; color: #4F4641; font-weight: 600; }
+        .form-section { display: none; } .form-section.active { display: block; }
+        label { font-weight: 600; color: #4F4641; }
+        input, textarea, select { background-color: #F7F3EE; border: 1px solid #EAE0D5; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #D5BFA8; box-shadow: 0 0 0 2px rgba(213, 191, 168, 0.5); }
+        .dice-button { background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; transition: transform 0.2s ease; }
+        .dice-button:hover { transform: scale(1.2) rotate(15deg); }
+        .ai-button { background-color: #4F4641; color: white; transition: all 0.3s ease; }
+        .ai-button:hover { background-color: #3a322e; }
+        .ai-button:disabled { background-color: #a8a29e; cursor: not-allowed; }
+        .custom-input { display: none; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-[#4F4641]">Gerador de Prompt Cinematográfico</h1>
+            <p class="text-lg text-gray-600 mt-2">A sua ferramenta definitiva para engenharia de prompts de vídeo.</p>
+        </header>
+
+        <main class="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-[#EAE0D5]">
+            <form id="prompt-form" class="space-y-8">
+                <div id="tabs" class="mb-6 flex flex-wrap justify-center gap-2 border-b-2 border-[#EAE0D5] pb-4">
+                    <button type="button" data-tab="mundo" class="tab-button active text-sm md:text-base px-4 py-2 rounded-lg">🌎 Mundo</button>
+                    <button type="button" data-tab="personagens" class="tab-button text-sm md:text-base px-4 py-2 rounded-lg">👤 Personagens</button>
+                    <button type="button" data-tab="acoes" class="tab-button text-sm md:text-base px-4 py-2 rounded-lg">🏃 Ações</button>
+                    <button type="button" data-tab="camera" class="tab-button text-sm md:text-base px-4 py-2 rounded-lg">🎥 Câmara & Estilo</button>
+                    <button type="button" data-tab="prompt" class="tab-button text-sm md:text-base px-4 py-2 rounded-lg bg-[#4F4641] text-white">📋 Prompt Final</button>
+                </div>
+
+                <div id="tab-content">
+                    <section id="mundo" class="form-section active space-y-6">
+                        <h2 class="text-2xl font-bold text-[#4F4641] border-b-2 border-[#EAE0D5] pb-2">Bíblia do Mundo e Cenário</h2>
+                        <div class="p-4 bg-[#F7F3EE] rounded-lg border border-[#EAE0D5] space-y-2">
+                            <label for="gemini_theme" class="block font-semibold">Comece com uma ideia simples (em inglês ou português):</label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="gemini_theme" placeholder="Ex: um dragão solitário, detetive no espaço..." class="w-full p-2 rounded-md">
+                                <button type="button" id="ai-elaborate-concept" class="ai-button font-bold py-2 px-4 rounded-lg flex-shrink-0">✨ Elaborar Conceito</button>
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-6">
+                             <div>
+                                <label for="contexto" class="block mb-1">Género / Tema Principal</label>
+                                <div class="flex items-center gap-2">
+                                    <select id="contexto" name="contexto" class="w-full p-2 rounded-md">
+                                        <option value="Science Fiction">Ficção Científica</option>
+                                        <option value="Fantasy">Fantasia</option>
+                                        <option value="Drama">Drama</option>
+                                        <option value="Comedy">Comédia</option>
+                                        <option value="Thriller">Suspense</option>
+                                        <option value="Adventure">Aventura</option>
+                                        <option value="Horror">Terror</option>
+                                        <option value="Noir">Noir</option>
+                                        <option value="custom">Personalizado/Outro...</option>
+                                    </select>
+                                    <button type="button" class="dice-button" data-target="contexto">🎲</button>
+                                </div>
+                                <input type="text" id="contexto_custom" name="contexto_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite o seu género personalizado">
+                            </div>
+                             <div>
+                                <label for="epoca" class="block mb-1">Período / Época</label>
+                                <div class="flex items-center gap-2">
+                                <select id="epoca" name="epoca" class="w-full p-2 rounded-md">
+                                    <option value="Contemporary">Contemporâneo</option>
+                                    <option value="Cyberpunk Future">Futuro Cyberpunk</option>
+                                    <option value="Utopian Future">Futuro Utópico</option>
+                                    <option value="Medieval">Medieval</option>
+                                    <option value="1980s">Anos 80</option>
+                                    <option value="Victorian Era">Era Vitoriana</option>
+                                    <option value="Roaring Twenties">Anos 20</option>
+                                    <option value="Post-Apocalyptic">Pós-Apocalíptico</option>
+                                    <option value="custom">Personalizado/Outro...</option>
+                                </select>
+                                <button type="button" class="dice-button" data-target="epoca">🎲</button>
+                                </div>
+                                <input type="text" id="epoca_custom" name="epoca_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite a sua época personalizada">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="cenario" class="block mb-1">Localização Principal</label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="cenario" name="cenario" placeholder="Ex: An ancient, dusty library..." class="w-full p-2 rounded-md">
+                                <button type="button" class="dice-button" data-target="cenario">🎲</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="detalhes_cenario" class="block mb-1">Atmosfera e Clima</label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="detalhes_cenario" name="detalhes_cenario" placeholder="Ex: Eerie silence, joyful chaos..." class="w-full p-2 rounded-md">
+                                <button type="button" class="dice-button" data-target="detalhes_cenario">🎲</button>
+                            </div>
+                        </div>
+                    </section>
+
+                     <section id="personagens" class="form-section space-y-6">
+                         <h2 class="text-2xl font-bold text-[#4F4641] border-b-2 border-[#EAE0D5] pb-2">Descrição de Personagens</h2>
+                        <div>
+                            <label for="personagem_nome" class="block mb-1">Nome ou Arquétipo</label>
+                             <div class="flex items-center gap-2">
+                                <input type="text" id="personagem_nome" name="personagem_nome" placeholder="Ex: The Wise Old Sage, The Young Heroine..." class="w-full p-2 rounded-md">
+                                <button type="button" class="dice-button" data-target="personagem_nome">🎲</button>
+                            </div>
+                        </div>
+                        <div>
+                             <label for="personagem_desc" class="block">Aparência e Vestuário</label>
+                             <div class="flex items-center gap-2">
+                                <textarea id="personagem_desc" name="personagem_desc" rows="3" placeholder="Insira um arquétipo acima e clique em ✨..." class="w-full p-2 rounded-md"></textarea>
+                                <button type="button" id="ai-detail-character" class="ai-button font-bold py-2 px-4 rounded-lg flex-shrink-0 self-start">✨ Detalhar</button>
+                            </div>
+                        </div>
+                         <div>
+                             <label for="personagem_personalidade" class="block">Personalidade e Emoção na Cena</label>
+                             <div class="flex items-center gap-2">
+                                <input id="personagem_personalidade" name="personagem_personalidade" type="text" placeholder="A IA também preenche este campo..." class="w-full p-2 rounded-md"/>
+                                <button type="button" class="dice-button" data-target="personagem_personalidade">🎲</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="acoes" class="form-section space-y-6">
+                        <h2 class="text-2xl font-bold text-[#4F4641] border-b-2 border-[#EAE0D5] pb-2">Ações e Expressões</h2>
+                         <div>
+                            <label for="acoes_sequencia" class="block mb-1">Sequência de Ações</label>
+                             <div class="flex items-center gap-2">
+                                <textarea id="acoes_sequencia" name="acoes_sequencia" rows="4" placeholder="Descreva a ação ou clique em ✨ para gerar uma cena..." class="w-full p-2 rounded-md"></textarea>
+                                <button type="button" id="ai-create-sequence" class="ai-button font-bold py-2 px-4 rounded-lg flex-shrink-0 self-start">✨ Gerar</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="camera" class="form-section space-y-6">
+                        <h2 class="text-2xl font-bold text-[#4F4641] border-b-2 border-[#EAE0D5] pb-2">Direção de Fotografia e Estilo</h2>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="estilo" class="block mb-1">Estilo Visual</label>
+                                <div class="flex items-center gap-2">
+                                    <select id="estilo" name="estilo" class="w-full p-2 rounded-md">
+                                        <option value="Cinematic, 8k, photorealistic">Cinematográfico, 8k, fotorrealista</option>
+                                        <option value="3D Animation (Pixar style)">Animação 3D (estilo Pixar)</option>
+                                        <option value="Anime (Studio Ghibli style)">Anime (estilo Ghibli)</option>
+                                        <option value="Stop-motion">Stop-motion</option>
+                                        <option value="Black and White film">Filme a Preto e Branco</option>
+                                        <option value="Vaporwave aesthetic">Estética Vaporwave</option>
+                                        <option value="custom">Personalizado/Outro...</option>
+                                    </select>
+                                    <button type="button" class="dice-button" data-target="estilo">🎲</button>
+                                </div>
+                                <input type="text" id="estilo_custom" name="estilo_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite o seu estilo visual">
+                            </div>
+                            <div>
+                                <label for="iluminacao" class="block mb-1">Iluminação Principal</label>
+                                <div class="flex items-center gap-2">
+                                    <select id="iluminacao" name="iluminacao" class="w-full p-2 rounded-md">
+                                        <option value="Soft natural light (Golden Hour)">Luz natural suave (Golden Hour)</option>
+                                        <option value="Nighttime (neon and streetlights)">Noturna (luz de néon)</option>
+                                        <option value="Low-key (high contrast, dramatic shadows)">Low-key (alto contraste)</option>
+                                        <option value="High-key (bright, few shadows)">High-key (bem iluminado)</option>
+                                        <option value="Volumetric lighting, god rays">Luz volumétrica, raios divinos</option>
+                                        <option value="Candlelight">Luz de velas</option>
+                                        <option value="custom">Personalizado/Outro...</option>
+                                    </select>
+                                    <button type="button" class="dice-button" data-target="iluminacao">🎲</button>
+                                </div>
+                                <input type="text" id="iluminacao_custom" name="iluminacao_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite a sua iluminação">
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-6">
+                             <div>
+                                <label for="camera_posicao" class="block mb-1">Ângulo de Câmara</label>
+                                <div class="flex items-center gap-2">
+                                    <select id="camera_posicao" name="camera_posicao" class="w-full p-2 rounded-md">
+                                        <option value="Wide shot">Plano geral</option>
+                                        <option value="Medium shot">Plano médio</option>
+                                        <option value="Close-up">Close-up</option>
+                                        <option value="Extreme close-up">Plano detalhe</option>
+                                        <option value="Low-angle shot (from below)">Contra-plongée (de baixo para cima)</option>
+                                        <option value="High-angle shot (from above)">Plongée (de cima para baixo)</option>
+                                        <option value="Dutch angle">Plano Holandês</option>
+                                        <option value="custom">Personalizado/Outro...</option>
+                                    </select>
+                                    <button type="button" class="dice-button" data-target="camera_posicao">🎲</button>
+                                </div>
+                                <input type="text" id="camera_posicao_custom" name="camera_posicao_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite o seu ângulo de câmara">
+                            </div>
+                            <div>
+                                <label for="camera_movimento" class="block mb-1">Movimento de Câmara</label>
+                                <div class="flex items-center gap-2">
+                                <select id="camera_movimento" name="camera_movimento" class="w-full p-2 rounded-md">
+                                    <option value="Static / Tripod">Estática / Tripé</option>
+                                    <option value="Tracking shot (dolly)">Travelling (movimento lateral)</option>
+                                    <option value="Pan (horizontal rotation)">Panorâmica (giro horizontal)</option>
+                                    <option value="Handheld camera">Câmara na mão</option>
+                                    <option value="Slow motion">Slow motion</option>
+                                    <option value="Crane shot">Movimento de grua</option>
+                                    <option value="custom">Personalizado/Outro...</option>
+                                </select>
+                                <button type="button" class="dice-button" data-target="camera_movimento">🎲</button>
+                                </div>
+                                <input type="text" id="camera_movimento_custom" name="camera_movimento_custom" class="custom-input w-full p-2 rounded-md mt-2" placeholder="Digite o seu movimento de câmara">
+                            </div>
+                        </div>
+                         <div>
+                            <label for="influencia" class="block mb-1">Influências Artísticas</label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="influencia" name="influencia" placeholder="Ex: in the style of Wes Anderson..." class="w-full p-2 rounded-md">
+                                <button type="button" class="dice-button" data-target="influencia">🎲</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="prompt" class="form-section space-y-6">
+                         <h2 class="text-2xl font-bold text-[#4F4641] border-b-2 border-[#EAE0D5] pb-2">Seu Prompt Mestre (Gerado em Inglês)</h2>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <button type="button" id="ai-refine-prompt" class="ai-button font-bold py-2 px-4 rounded-lg">✨ Gerar Prompt Narrativo</button>
+                             <button type="button" id="ai-mix-prompt" class="ai-button font-bold py-2 px-4 rounded-lg">✨ Gerar Prompt Misto</button>
+                         </div>
+                         <div class="space-y-2">
+                            <label for="master-prompt" class="block font-semibold">Prompt Estruturado:</label>
+                            <textarea id="master-prompt" rows="12" class="w-full p-4 rounded-md bg-gray-900 text-green-300 font-mono text-sm" readonly></textarea>
+                         </div>
+                         <div class="space-y-2">
+                            <label for="refined-prompt" class="block font-semibold">Prompt Narrativo (Gerado por IA):</label>
+                            <textarea id="refined-prompt" rows="8" class="w-full p-4 rounded-md bg-gray-200 text-gray-800" placeholder="Clique no botão 'Gerar Prompt Narrativo' para a IA reescrever o prompt..."></textarea>
+                         </div>
+                         <div class="space-y-2">
+                            <label for="mixed-prompt" class="block font-semibold">Prompt Misto (Gerado por IA):</label>
+                            <textarea id="mixed-prompt" rows="10" class="w-full p-4 rounded-md bg-gray-200 text-gray-800" placeholder="Clique no botão 'Gerar Prompt Misto' para a IA criar uma versão combinada..."></textarea>
+                         </div>
+                         <div class="flex flex-wrap gap-2 mt-6">
+                            <button type="button" id="copy-structured-button" class="btn bg-[#D5BFA8] hover:bg-[#c9b29a] text-[#4F4641] font-bold py-2 px-3 rounded-lg flex-grow">Copiar Estruturado</button>
+                            <button type="button" id="copy-refined-button" class="btn bg-[#D5BFA8] hover:bg-[#c9b29a] text-[#4F4641] font-bold py-2 px-3 rounded-lg flex-grow">Copiar Narrativo</button>
+                            <button type="button" id="copy-mixed-button" class="btn bg-[#D5BFA8] hover:bg-[#c9b29a] text-[#4F4641] font-bold py-2 px-3 rounded-lg flex-grow">Copiar Misto</button>
+                            <button type="button" id="reset-button" class="btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-3 rounded-lg">Limpar Tudo</button>
+                         </div>
+                    </section>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('prompt-form');
+
+        // --- DATA ---
+        const suggestionData = {
+            contexto: ["Science Fiction", "Fantasy", "Drama", "Comedy", "Thriller", "Adventure", "Horror", "Noir"],
+            epoca: ["Contemporary", "Cyberpunk Future", "Utopian Future", "Medieval", "1980s", "Victorian Era", "Roaring Twenties", "Post-Apocalyptic"],
+            cenario: {
+                "Science Fiction": ["The command bridge of a starship", "A bustling street market in a cyberpunk megalopolis", "An abandoned AI laboratory", "A terraforming station on Mars during a sandstorm"],
+                "Fantasy": ["An elven tavern hidden in a giant tree", "The throne room of a haunted castle", "A mystical clearing with floating crystals", "The glowing mushroom caverns of the Underdark"],
+                "Drama": ["A cozy coffee shop on a rainy day", "A tense courtroom", "A penthouse apartment overlooking the city at night", "A silent hospital room"],
+                "Comedy": ["A chaotic office during a deadline crisis", "A disastrous family dinner", "A bizarre theme park", "An amateur talent show"],
+                "Thriller": ["An isolated cabin in the woods during a storm", "A dark and damp basement", "A dead-end alley at night", "An empty parking garage"],
+                "Adventure": ["The ruins of an ancient temple in the jungle", "The deck of a pirate ship on the high seas", "The peak of a snowy mountain", "A cave with prehistoric paintings"],
+                "Horror": ["A derelict asylum with flickering lights", "A child's bedroom with a closet door slightly ajar", "A cornfield at midnight"],
+                "Noir": ["A smokey detective's office in 1940s New York", "A rain-slicked street under a single flickering streetlamp", "An opulent but lonely jazz club"]
+            },
+            personagem_nome: {
+                "Science Fiction": ["Commander Valeriana", "The hacker 'Nexus'", "Protocol Droid 7-Z", "Grizzled asteroid miner Kael"],
+                "Fantasy": ["Sir Gideon the Just", "Lyra, the air-mage", "Grimgar the Barbarian", "Disgraced paladin seeking redemption"],
+                "Drama": ["Dr. Aris Thorne", "The ambitious lawyer Isabella Rossi", "Street musician Leo", "CEO Clara Evans"],
+                "Comedy": ["The clumsy intern Tim", "The nosy neighbor Brenda", "Middle-aged manager Bob", "Eccentric yoga guru Luna"],
+                "Thriller": ["Detective Miles Corbin", "The amnesiac victim, Jane Doe", "The mysterious janitor", "Psychologist Dr. Albright"],
+                "Adventure": ["Fearless archaeologist Zara", "Local guide Jafari", "Treasure hunter Finn", "The ace pilot, Sky"],
+                "Horror": ["The final girl", "The skeptical paranormal investigator", "The cursed antique doll"],
+                "Noir": ["The jaded Private Eye, Jack Slate", "The femme fatale with a hidden agenda", "The corrupt police chief"]
+            },
+            personagem_personalidade: ['determined and focused', 'sarcastic and cynical', 'nervous and hesitant', 'joyful and optimistic', 'cold and calculating', 'brave and reckless', 'world-weary and jaded'],
+            acoes_sequencia: ["The character enters the room, scanning their surroundings. They walk towards a strange object on a table. Hesitantly, they reach out and touch it.", "Leaning against a wall, the character takes a long drag from a cigarette. They watch a car pass by, their eyes filled with suspicion. They flick the cigarette away and walk into the shadows.", "Running through a dense forest, the character glances back. They stumble over a root but quickly recover. They see a clearing ahead and sprint towards it."],
+            influencia: ["in the style of Wes Anderson", "in the style of Denis Villeneuve", "cinematography like Roger Deakins", "inspired by Blade Runner's neon-noir aesthetic", "with the saturated color palette of a Pedro Almodóvar film", "art direction similar to Studio Ghibli", "fast-paced editing like Edgar Wright"],
+            estilo: ["Cinematic, 8k, photorealistic", "3D Animation (Pixar style)", "Anime (Studio Ghibli style)", "Stop-motion", "Black and White film", "Vaporwave aesthetic"],
+            iluminacao: ["Soft natural light (Golden Hour)", "Nighttime (neon and streetlights)", "Low-key (high contrast, dramatic shadows)", "High-key (bright, few shadows)", "Volumetric lighting, god rays", "Candlelight"],
+            camera_posicao: ["Wide shot", "Medium shot", "Close-up", "Extreme close-up", "Low-angle shot (from below)", "High-angle shot (from above)", "Dutch angle"],
+            camera_movimento: ["Static / Tripod", "Tracking shot (dolly)", "Pan (horizontal rotation)", "Handheld camera", "Slow motion", "Crane shot"]
+        };
+
+        const API_KEY = "";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+
+        // --- CORE LOGIC ---
+        function getFormValue(id) {
+            const select = document.getElementById(id);
+            if (select.value === 'custom') {
+                return document.getElementById(id + '_custom').value;
+            }
+            return select.value;
+        }
+
+        function updatePrompt() {
+            const formData = new FormData(form);
+            const p = {
+                contexto: getFormValue('contexto'),
+                epoca: getFormValue('epoca'),
+                cenario: formData.get('cenario'),
+                detalhes_cenario: formData.get('detalhes_cenario'),
+                personagem_nome: formData.get('personagem_nome'),
+                personagem_desc: formData.get('personagem_desc'),
+                personagem_personalidade: formData.get('personagem_personalidade'),
+                acoes_sequencia: formData.get('acoes_sequencia'),
+                estilo: getFormValue('estilo'),
+                iluminacao: getFormValue('iluminacao'),
+                camera_posicao: getFormValue('camera_posicao'),
+                camera_movimento: getFormValue('camera_movimento'),
+                influencia: formData.get('influencia')
+            };
+
+            let prompt = `**CENTRAL CONCEPT**\n- Genre/Theme: ${p.contexto || ''}\n- Artistic Influence: ${p.influencia || ''}\n- Visual Style: ${p.estilo || ''}\n\n`;
+            prompt += `**WORLD & SCENARIO**\n- Location: ${p.cenario || ''}\n- Period/Era: ${p.epoca || ''}\n- Atmosphere/Weather: ${p.detalhes_cenario || ''}\n\n`;
+            if (p.personagem_nome) {
+                prompt += `**CHARACTER: ${p.personagem_nome}**\n- Appearance: ${p.personagem_desc || ''}\n- Personality/Emotion: ${p.personagem_personalidade || ''}\n\n`;
+            }
+            prompt += `**ACTION & NARRATIVE**\n- Action Sequence: ${p.acoes_sequencia || ''}\n\n`;
+            prompt += `**CINEMATOGRAPHY**\n- Lighting: ${p.iluminacao || ''}\n- Camera Angle: ${p.camera_posicao || ''}\n- Camera Movement: ${p.camera_movimento || ''}\n\n`;
+            prompt += `**IMPORTANT INSTRUCTION:** If any character speaks, their dialogue MUST be in Brazilian Portuguese.`;
+            document.getElementById('master-prompt').value = prompt;
+        }
+
+        // --- GEMINI API CALLS ---
+        async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            try {
+                const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) {
+                    if (response.status === 429 && retries > 0) {
+                        await new Promise(res => setTimeout(res, delay));
+                        return callGeminiAPI(prompt, retries - 1, delay * 2);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                return result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return "An error occurred while contacting the AI. Please try again.";
+            }
+        }
+
+        async function setupAIGeneration(button, systemPrompt, outputTextarea) {
+            updatePrompt();
+            const structuredPrompt = document.getElementById('master-prompt').value;
+            if (!structuredPrompt) return;
+            const fullPrompt = `${systemPrompt}\n\nSTRUCTURED PROMPT:\n${structuredPrompt}`;
+            
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'A gerar...';
+            document.querySelectorAll('.ai-button').forEach(b => b.disabled = true);
+            outputTextarea.value = "A IA está a pensar...";
+            
+            const response = await callGeminiAPI(fullPrompt);
+            
+            outputTextarea.value = response;
+            button.disabled = false;
+            button.textContent = originalText;
+            document.querySelectorAll('.ai-button').forEach(b => b.disabled = false);
+        }
+
+        document.getElementById('ai-refine-prompt').addEventListener('click', (e) => {
+            const systemPrompt = "You are a prompt expert for video generation AIs. Rewrite the following structured prompt into a single, fluid, and highly descriptive paragraph in ENGLISH. Maintain all key details.";
+            setupAIGeneration(e.target, systemPrompt, document.getElementById('refined-prompt'));
+        });
+
+        document.getElementById('ai-mix-prompt').addEventListener('click', (e) => {
+            const systemPrompt = "You are a prompt expert for video generation AIs. Rewrite the following structured prompt in ENGLISH. Start with a single, highly descriptive narrative paragraph. After the paragraph, add a 'KEY ELEMENTS:' section that lists the most important technical details (like Camera Angle, Movement, Lighting) in a clear, bulleted format.";
+            setupAIGeneration(e.target, systemPrompt, document.getElementById('mixed-prompt'));
+        });
+        
+        document.getElementById('ai-elaborate-concept').addEventListener('click', async (e) => {
+            const button = e.target;
+            const theme = document.getElementById('gemini_theme').value;
+            if (!theme) { alert("Por favor, insira uma ideia simples primeiro."); return; }
+            const prompt = `You are a script assistant. Based on the theme "${theme}", generate a Genre, Era, Main Location, and Atmosphere. Respond ONLY in JSON format with the keys "genre", "era", "location", "atmosphere" in ENGLISH.`;
+            
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'A gerar...';
+
+            const response = await callGeminiAPI(prompt);
+            try {
+                const data = JSON.parse(response);
+                document.getElementById('cenario').value = data.location;
+                document.getElementById('detalhes_cenario').value = data.atmosphere;
+                
+                const generoSelect = document.getElementById('contexto');
+                const epocaSelect = document.getElementById('epoca');
+                if ([...generoSelect.options].some(o => o.value === data.genre)) generoSelect.value = data.genre; else { generoSelect.value = 'custom'; document.getElementById('contexto_custom').value = data.genre; }
+                if ([...epocaSelect.options].some(o => o.value === data.era)) epocaSelect.value = data.era; else { epocaSelect.value = 'custom'; document.getElementById('epoca_custom').value = data.era; }
+                
+                [...document.querySelectorAll('select')].forEach(s => s.dispatchEvent(new Event('change', {bubbles: true})));
+            } catch (err) {
+                console.error("Failed to parse JSON from Gemini:", response);
+                alert("A IA retornou uma resposta inesperada. Tente novamente.");
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+                updatePrompt();
+            }
+        });
+
+        document.getElementById('ai-detail-character').addEventListener('click', async (e) => {
+            const button = e.target;
+            const archetype = document.getElementById('personagem_nome').value;
+            const genre = getFormValue('contexto');
+            if (!archetype) { alert("Por favor, insira um nome ou arquétipo."); return; }
+            const prompt = `You are a character creator. Describe the appearance and personality for a character with the archetype "${archetype}" in a ${genre} film. Respond ONLY in JSON with "appearance" and "personality" keys in ENGLISH.`;
+            
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'A gerar...';
+            
+            const response = await callGeminiAPI(prompt);
+            try {
+                const data = JSON.parse(response);
+                document.getElementById('personagem_desc').value = data.appearance;
+                document.getElementById('personagem_personalidade').value = data.personality;
+            } catch (err) {
+                 console.error("Failed to parse JSON from Gemini:", response);
+                 alert("A IA retornou uma resposta inesperada. Tente novamente.");
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+                updatePrompt();
+            }
+        });
+
+        document.getElementById('ai-create-sequence').addEventListener('click', async (e) => {
+            const button = e.target;
+            const character = document.getElementById('personagem_nome').value;
+            const scenario = document.getElementById('cenario').value;
+            if (!character || !scenario) { alert("Por favor, preencha o personagem e cenário primeiro."); return; }
+
+            const prompt = `You are a screenwriter. Create a brief, 3-4 sentence action sequence for "${character}" in this location: "${scenario}". Respond only with the sequence text in ENGLISH.`;
+            
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'A gerar...';
+            
+            const response = await callGeminiAPI(prompt);
+            document.getElementById('acoes_sequencia').value = response;
+            
+            button.disabled = false;
+            button.textContent = originalText;
+            updatePrompt();
+        });
+
+
+        // --- UI & EVENT LISTENERS ---
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const customInput = document.getElementById(e.target.id + '_custom');
+                if (customInput) {
+                    customInput.style.display = e.target.value === 'custom' ? 'block' : 'none';
+                }
+                updatePrompt();
+            });
+        });
+
+        document.getElementById('tabs').addEventListener('click', (e) => {
+             if (e.target.classList.contains('tab-button')) {
+                document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                document.querySelectorAll('.form-section').forEach(s => s.classList.toggle('active', s.id === e.target.dataset.tab));
+             }
+        });
+
+        form.addEventListener('input', updatePrompt);
+
+        form.addEventListener('click', (e) => {
+            const target = e.target.closest('.dice-button');
+            if (!target) return;
+            const targetId = target.dataset.target;
+            const targetElement = document.getElementById(targetId);
+            if (!targetElement) return;
+
+            let suggestion;
+            const currentGenre = getFormValue('contexto');
+            
+            if (targetId === 'cenario' || targetId === 'personagem_nome') {
+                suggestion = suggestionData[targetId][currentGenre] ? getRandomElement(suggestionData[targetId][currentGenre]) : getRandomElement(Object.values(suggestionData[targetId]).flat());
+            } else {
+                 suggestion = getRandomElement(suggestionData[targetId]);
+            }
+            
+            if (suggestion) {
+                targetElement.value = suggestion;
+                targetElement.dispatchEvent(new Event('change', { bubbles: true }));
+                targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+        
+        function copyToClipboard(element, button) {
+             if (!element.value || element.value.includes("A IA está a pensar...")) return;
+             element.select();
+             document.execCommand('copy');
+             const originalText = button.textContent;
+             button.textContent = 'Copiado!';
+             setTimeout(() => { button.textContent = originalText; }, 2000);
+        }
+        
+        document.getElementById('copy-structured-button').addEventListener('click', (e) => copyToClipboard(document.getElementById('master-prompt'), e.target));
+        document.getElementById('copy-refined-button').addEventListener('click', (e) => copyToClipboard(document.getElementById('refined-prompt'), e.target));
+        document.getElementById('copy-mixed-button').addEventListener('click', (e) => copyToClipboard(document.getElementById('mixed-prompt'), e.target));
+
+        document.getElementById('reset-button').addEventListener('click', () => {
+            form.reset();
+            document.querySelectorAll('select').forEach(s => {
+                s.dispatchEvent(new Event('change'));
+                s.selectedIndex = 0;
+            });
+            document.querySelectorAll('.custom-input').forEach(i => i.style.display = 'none');
+            document.querySelectorAll('textarea').forEach(t => t.value = '');
+            document.getElementById('mundo').classList.add('active');
+            document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('active'));
+            document.querySelector('.tab-button[data-tab="mundo"]').classList.add('active');
+            updatePrompt();
+        });
+        
+        function getRandomElement(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        // Initial setup
+        document.getElementById('mundo').classList.add('active');
+        updatePrompt(); 
+    });
+    </script>
+</body>
+</html>
